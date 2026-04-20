@@ -1,0 +1,356 @@
+HEO Demo - Build Notes
+======================
+
+Project summary
+---------------
+This project is a React, TypeScript, Vite, and Tailwind demo for an aerospace-style operations dashboard. It combines a polished frontend interface with typed mock data, live NASA APIs, a Three.js globe, local caching, protected routing, and clean component structure.
+
+The app is intentionally built as a frontend-focused product demo. It is not an official HEO product and does not claim to represent HEO.
+
+
+Core tech stack
+---------------
+- React for the UI.
+- TypeScript for strong data modelling and safer component/API contracts.
+- Vite for fast development, bundling, and local middleware.
+- Tailwind CSS for responsive, utility-first styling.
+- React Router for page navigation and protected routes.
+- lucide-react for consistent iconography.
+- framer-motion for small UI transitions.
+- Three.js for the interactive globe.
+- Playwright scripts for smoke testing key browser flows.
+
+
+Application structure
+---------------------
+The app is split into clear areas:
+
+- src/api
+  Contains frontend service functions. Components call typed API helpers instead of calling fetch directly.
+
+- src/components
+  Reusable UI building blocks such as Sidebar, Topbar, ObjectCard, StatusBadge, SolarEventTimeline, OrbitalLoader, and GlobeScene.
+
+- src/data
+  Local fallback/mock space object data.
+
+- src/layout
+  Shared app layout with Sidebar, Topbar, main outlet, and footer disclaimer.
+
+- src/pages
+  Route-level pages such as Dashboard, Globe, Solar Events, My Satellite, How It Works, Login, and Object Detail.
+
+- src/types
+  Shared TypeScript interfaces for auth, space objects, images, globe positions, activity events, and solar events.
+
+- vite.config.ts
+  Vite config plus server-side proxy middleware for NASA APIs.
+
+
+Routing and auth
+----------------
+React Router is used for navigation.
+
+Routes include:
+- /login
+- /dashboard
+- /globe
+- /solar-events
+- /how-it-works
+- /my-satellite
+- /objects/:objectId
+- /satellites/:objectId
+
+The app uses a simple fake authentication flow:
+- The login page validates email and password.
+- A mock token is saved to localStorage.
+- Protected routes redirect unauthenticated users to /login.
+- Logout clears the localStorage session.
+
+This demonstrates protected routing and auth state without overbuilding a real backend auth system.
+
+
+Dashboard
+---------
+The dashboard shows:
+- Object stats
+- Search and status filters
+- Responsive object cards
+- Loading states
+- Empty states
+- Error states
+- High-risk solar event banner when NASA DONKI data contains high-risk events
+
+The dashboard uses the typed API layer rather than direct fetch calls. It also guards against stale responses so repeated refreshes or page changes do not overwrite newer state.
+
+
+Globe page
+----------
+The Globe page uses Three.js to render:
+- A futuristic Earth
+- Landmass texture generated in canvas
+- Australia and New Zealand included in the generated map
+- Orbit rings
+- Satellite markers
+- Draggable globe rotation
+- Clickable satellite records
+
+Live satellite positions come from NASA Satellite Situation Center through a local Vite proxy.
+
+The Globe page also includes:
+- NASA SSC localStorage cache
+- Background refresh
+- Mock fallback objects if NASA SSC is unavailable
+- Request guards to avoid stale state updates
+
+
+NASA Satellite Situation Center integration
+-------------------------------------------
+The app calls NASA SSC through Vite middleware:
+
+Frontend:
+- Calls /api/nasa/ssc/objects
+
+Server-side Vite middleware:
+- Reads NASA_API from .env.local
+- Calls NASA SSC server-side
+- Parses the SSC Java-style JSON response
+- Normalizes satellite data into the app's SpaceObject model
+
+This keeps the API key out of browser code.
+
+The normalized objects include:
+- id
+- name
+- status
+- altitude
+- lastUpdated
+- riskLevel
+- imageUrl
+- imageHistory
+- description
+- category
+- velocity
+- owner
+- telemetryHealth
+- globe latitude/longitude/radius
+- activity timeline
+
+
+NASA DONKI integration
+----------------------
+The Solar Events page uses NASA DONKI through Vite middleware.
+
+Frontend:
+- Calls /api/nasa/donki/events
+
+Server-side Vite middleware:
+- Reads NASA_API from .env.local
+- Calls DONKI endpoints:
+  - FLR for solar flares
+  - CME for coronal mass ejections
+  - GST for geomagnetic storms
+  - notifications for broader space-weather notices
+- Normalizes the results into a shared SolarEvent model
+
+Solar events include:
+- id
+- type
+- title
+- occurredAt
+- source
+- risk
+- summary
+- estimated satellite effect
+- metric label/value
+- NASA record link
+
+
+Solar event risk heuristics
+---------------------------
+The app estimates event risk using simple transparent heuristics.
+
+Examples:
+- X-class flares and strong M-class flares are treated as high risk.
+- Fast or wide CMEs are treated as higher risk.
+- Geomagnetic storms with high Kp values are treated as higher risk.
+- Radiation belt enhancement notifications with severe language are treated as higher risk.
+
+The app labels these as heuristic estimates, not official operational warnings.
+
+
+Caching and async loading
+-------------------------
+The app uses localStorage caching for NASA data where it improves perceived speed.
+
+DONKI cache:
+- Cached for 10 minutes.
+- Repeat visits show cached solar events quickly.
+- A fresh NASA request updates the cache in the background.
+
+SSC globe cache:
+- Cached for 5 minutes.
+- The Globe page can render recent satellite positions quickly.
+- NASA SSC refresh happens in the background.
+
+Async practices used:
+- Page shells render while API calls are in flight.
+- Initial loads are deferred so the UI can paint first.
+- Request IDs guard against stale responses.
+- AbortSignal support is used for fetch-capable API helpers.
+- Background refresh failures are caught so they do not crash the UI.
+- Loading UI is visible and user-friendly.
+
+
+Loading states
+--------------
+The app uses a custom OrbitalLoader component for API-backed pages.
+
+It shows:
+- Spinning orbital ring
+- Satellite icon
+- Clear loading copy
+- A polished space-tech style
+
+Skeleton cards are also used for grid content while data is loading.
+
+
+Topbar search
+-------------
+The top search bar works as page navigation.
+
+Users can search and jump to:
+- Dashboard
+- Globe
+- Solar Events
+- How it works
+- My Satellite
+
+The search supports keywords and pressing Enter to go to the first matching page.
+
+
+My Satellite page
+-----------------
+The My Satellite page is a friendly made-up operations view.
+
+It includes:
+- Health percentage
+- Orbit deviation
+- Last imaged timestamp
+- Battery status
+- Current altitude
+- Ground track
+- Downlink window
+- Thermal range
+- Attitude mode
+- Signal strength
+- Recent activity timeline
+- Last image preview
+- Next actions
+
+This page demonstrates user-friendly technical data presentation.
+
+
+UI and design practices
+-----------------------
+The interface uses a dark aerospace operations style:
+- Deep navy and black backgrounds
+- Glassmorphism panels
+- Subtle cyan borders and glow
+- Clear visual hierarchy
+- Responsive layouts
+- Accessible focus states
+- Compact but readable technical data cards
+
+Cards are kept structured and purposeful. The app avoids unnecessary marketing sections and focuses on usable screens.
+
+
+TypeScript practices
+--------------------
+The app defines shared types for important data structures:
+- AuthCredentials
+- AuthSession
+- SpaceObject
+- ObjectImage
+- GlobePosition
+- ActivityEvent
+- SolarEvent
+- SolarEventRisk
+- SolarEventType
+
+The goal is to keep API data predictable and reduce component-level guesswork.
+
+
+API layer practices
+-------------------
+Components do not directly fetch external APIs.
+
+Instead, the app uses service functions:
+- login
+- getObjects
+- getObjectById
+- toggleFavourite
+- getNasaSscObjects
+- getDonkiSolarEvents
+
+This keeps data access centralized and makes it easier to swap mock data for real APIs later.
+
+
+Resilience practices
+--------------------
+The app handles:
+- Loading states
+- Empty states
+- Error states
+- Cached data
+- Background refreshes
+- API fallback
+- Stale response prevention
+- Route changes during requests
+
+For example, if NASA SSC fails, the Globe can fall back to local demo objects. If DONKI fails, the Solar Events page shows a retryable alert.
+
+
+Performance practices
+---------------------
+- The Globe page is lazy-loaded so Three.js does not affect the initial dashboard bundle.
+- DONKI responses are limited by days and result count.
+- Solar Events initially shows a limited number of events with a View More button.
+- NASA data is cached in localStorage for faster repeat navigation.
+- The UI renders shells and loaders while API calls continue in the background.
+
+
+Testing and verification
+------------------------
+The project includes Playwright smoke scripts:
+- globe-smoke.mjs
+- donki-smoke.mjs
+- navigation-smoke.mjs
+
+These verify:
+- The globe canvas renders nonblank pixels.
+- Satellite navigation works.
+- Solar Events page renders a timeline.
+- Topbar search navigation works.
+
+Build and lint commands:
+- npm run build
+- npm run lint
+
+
+Environment variables
+---------------------
+The NASA API key is stored in:
+
+.env.local
+
+Expected variable:
+
+NASA_API=your_api_key_here
+
+The key is used by Vite middleware and is not exposed directly to browser code.
+
+
+Important disclaimer
+--------------------
+This project is an independent concept demo. It is not an official HEO product. It does not claim to represent HEO. It is a demonstration of frontend engineering, UI design, API integration, TypeScript structure, async loading, and technical data visualization.
